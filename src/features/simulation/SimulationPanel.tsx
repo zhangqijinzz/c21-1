@@ -159,6 +159,35 @@ export default function SimulationPanel({
           </div>
         </article>
       </div>
+      {result.stages.length > 0 && (
+        <div className="stage-breakdown">
+          <div className="stage-breakdown-head">
+            <span className="section-label">分段构成</span>
+            <span className="timeline-caption">
+              各分段完成时间 · 标注拖慢整体的一段
+            </span>
+          </div>
+          <div className="stage-cards">
+            {result.stages.map((report) => (
+              <article
+                className={`stage-card ${report.bottleneck ? "is-bottleneck" : ""}`}
+                key={report.stageId ?? "unassigned"}
+              >
+                <span className="stage-card-name">
+                  {report.name}
+                  {report.bottleneck && <em>拖慢整体</em>}
+                </span>
+                <strong>{durationLabel(report.completionMs)}</strong>
+                <small>
+                  {report.nodeIds.length} 个请求 · 等待{" "}
+                  {durationLabel(report.waitMs)} · 关键链路{" "}
+                  {report.criticalNodeIds.length} 段
+                </small>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
       <Timeline project={project} result={result} />
       <div className="model-footnote">
         耗时 = 截断后的请求耗时 × 失败重试概率 +

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ProjectRepository } from "../src/shared/repositories/projectRepository";
+import { simulateProject } from "../src/shared/domain/simulation";
 import {
   EXAMPLE_PROJECT,
   type WorkspaceDocument,
@@ -85,5 +86,116 @@ describe("project repository recovery", () => {
     const loaded = await repository.load();
     expect(loaded.document.projects[0]?.id).toBe(EXAMPLE_PROJECT.id);
     expect(loaded.recovered).toBe(true);
+  });
+
+  it("opens legacy documents without stage fields without flagging recovery", async () => {
+    const storage = new MemoryStorage();
+    // 老版本数据：项目、节点、快照都没有任何分段字段
+    storage.value = {
+      version: 1,
+      activeProjectId: "legacy",
+      projects: [
+        {
+          id: "legacy",
+          title: "老项目",
+          nodes: [
+            {
+              id: "a",
+              name: "请求A",
+              durationMs: 100,
+              jitterMs: 0,
+              dependencyIds: [],
+              timeoutMs: 500,
+              retryCount: 0,
+              failureRate: 0,
+            },
+          ],
+          concurrencyLimit: null,
+          scenarios: [
+            {
+              id: "s1",
+              name: "老方案",
+              createdAt: 1,
+              concurrencyLimit: null,
+              nodes: [
+                {
+                  id: "a",
+                  name: "请求A",
+                  durationMs: 100,
+                  jitterMs: 0,
+                  dependencyIds: [],
+                  timeoutMs: 500,
+                  retryCount: 0,
+                  failureRate: 0,
+                },
+              ],
+              completionMs: 100,
+              criticalPath: ["a"],
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    const loaded = await new ProjectRepository(storage).load();
+    expect(loaded.recovered).toBe(false);
+    const project = loaded.document.projects[0];
+    expect(project?.stages).toEqual([]);
+    expect(project?.scenarios[0]?.stages).toEqual([]);
+    expect(project?.scenarios[0]?.stageCompletions).toEqual([]);
+    // 老数据照常推演
+    const result = simulateProject(project!);
+    expect(result.entries).toHaveLength(1);
+    expect(result.completionMs).toBe(100);
+    expect(result.stages).toEqual([]);
+  });
+
+  it("drops malformed stage rows and clears dangling stage assignments", async () => {
+    const storage = new MemoryStorage();
+    storage.value = {
+      version: 1,
+      activeProjectId: "p1",
+      projects: [
+        {
+          id: "p1",
+          title: "分段损坏",
+          stages: [{ id: "s1", name: "首屏" }, { id: 7 }, "broken"],
+          nodes: [
+            {
+              id: "a",
+              name: "请求A",
+              durationMs: 100,
+              jitterMs: 0,
+              dependencyIds: [],
+              timeoutMs: 500,
+              retryCount: 0,
+              failureRate: 0,
+              stageId: "ghost-stage",
+            },
+            {
+              id: "b",
+              name: "请求B",
+              durationMs: 100,
+              jitterMs: 0,
+              dependencyIds: [],
+              timeoutMs: 500,
+              retryCount: 0,
+              failureRate: 0,
+              stageId: "s1",
+            },
+          ],
+          scenarios: [],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+    const loaded = await new ProjectRepository(storage).load();
+    expect(loaded.recovered).toBe(true);
+    const project = loaded.document.projects[0];
+    expect(project?.stages).toEqual([{ id: "s1", name: "首屏" }]);
+    expect(project?.nodes[0]?.stageId).toBeUndefined();
+    expect(project?.nodes[1]?.stageId).toBe("s1");
   });
 });

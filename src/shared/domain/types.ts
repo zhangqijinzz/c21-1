@@ -8,6 +8,18 @@ export interface RequestNode {
   retryCount: number;
   failureRate: number;
   fallbackNodeId?: string;
+  stageId?: string;
+}
+
+export interface StageDefinition {
+  id: string;
+  name: string;
+}
+
+export interface StageCompletion {
+  stageId: string | null;
+  name: string;
+  completionMs: number;
 }
 
 export interface ScenarioSnapshot {
@@ -16,6 +28,8 @@ export interface ScenarioSnapshot {
   createdAt: number;
   concurrencyLimit: number | null;
   nodes: RequestNode[];
+  stages: StageDefinition[];
+  stageCompletions: StageCompletion[];
   completionMs: number;
   criticalPath: string[];
 }
@@ -24,6 +38,7 @@ export interface LatencyProject {
   id: string;
   title: string;
   nodes: RequestNode[];
+  stages: StageDefinition[];
   concurrencyLimit: number | null;
   scenarios: ScenarioSnapshot[];
   createdAt: number;
@@ -40,6 +55,7 @@ export type SimulationMode = "low" | "expected" | "high";
 
 export interface TimelineEntry {
   nodeId: string;
+  stageId: string | null;
   startMs: number;
   endMs: number;
   modeledDurationMs: number;
@@ -47,11 +63,23 @@ export interface TimelineEntry {
   criticalPredecessorId?: string;
 }
 
+export interface StageReport {
+  stageId: string | null;
+  name: string;
+  nodeIds: string[];
+  startMs: number;
+  completionMs: number;
+  waitMs: number;
+  criticalNodeIds: string[];
+  bottleneck: boolean;
+}
+
 export interface SimulationResult {
   mode: SimulationMode;
   completionMs: number;
   criticalPath: string[];
   entries: TimelineEntry[];
+  stages: StageReport[];
   warnings: string[];
 }
 
@@ -67,6 +95,11 @@ export const EXAMPLE_PROJECT: LatencyProject = {
   createdAt: 1_728_000_000_000,
   updatedAt: 1_728_000_000_000,
   scenarios: [],
+  stages: [
+    { id: "stage-first-paint", name: "首屏" },
+    { id: "stage-interactive", name: "可交互" },
+    { id: "stage-secondary", name: "次要内容" },
+  ],
   nodes: [
     {
       id: "session",
@@ -77,6 +110,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 800,
       retryCount: 1,
       failureRate: 1,
+      stageId: "stage-first-paint",
     },
     {
       id: "flags",
@@ -87,6 +121,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 700,
       retryCount: 0,
       failureRate: 0,
+      stageId: "stage-first-paint",
     },
     {
       id: "profile",
@@ -97,6 +132,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 1200,
       retryCount: 1,
       failureRate: 3,
+      stageId: "stage-interactive",
     },
     {
       id: "catalog",
@@ -107,6 +143,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 1400,
       retryCount: 1,
       failureRate: 2,
+      stageId: "stage-interactive",
     },
     {
       id: "recommend",
@@ -118,6 +155,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       retryCount: 1,
       failureRate: 5,
       fallbackNodeId: "catalog",
+      stageId: "stage-secondary",
     },
   ],
 };
@@ -127,6 +165,7 @@ export function createEmptyProject(now = Date.now()): LatencyProject {
     id: `project-${crypto.randomUUID()}`,
     title: "未命名链路",
     nodes: [],
+    stages: [],
     concurrencyLimit: null,
     scenarios: [],
     createdAt: now,

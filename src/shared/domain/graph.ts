@@ -1,3 +1,4 @@
+import { validateStages } from "./stages";
 import type { LatencyProject, RequestNode, ValidationResult } from "./types";
 
 export interface GraphAnalysis {
@@ -98,6 +99,9 @@ export function analyzeGraph(project: LatencyProject): GraphAnalysis {
     errors.push(
       `检测到循环依赖：${cycle.map((id) => project.nodes.find((node) => node.id === id)?.name ?? id).join(" → ")}`,
     );
+  const stageIssues = validateStages(project);
+  errors.push(...stageIssues.errors);
+  warnings.push(...stageIssues.warnings);
   if (
     project.nodes.some((node) => node.dependencyIds.length === 0) &&
     project.nodes.length > 1

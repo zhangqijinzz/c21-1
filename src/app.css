@@ -2230,6 +2230,236 @@ button:disabled {
 .node-card.cycle-conflict .node-led {
   background: #cc725f;
 }
+.stage-board {
+  margin-bottom: 17px;
+  padding: 14px 18px 13px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.stage-board .board-topline {
+  padding-bottom: 11px;
+}
+.stage-add {
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 9px;
+}
+.stage-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 9px;
+  border: 1px solid #ebeee8;
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+.stage-order {
+  color: #a8b0a9;
+  font: 9px var(--mono);
+}
+.stage-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.stage-count {
+  flex: 0 0 auto;
+  color: #97a197;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.stage-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.stage-actions .icon-button {
+  width: 22px;
+  height: 22px;
+}
+.stage-actions .icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stage-unassigned {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a08a5a;
+  font-size: 8px;
+}
+.stage-hint {
+  margin: 11px 0 0;
+  color: #a0a9a0;
+  font-size: 9px;
+  line-height: 1.6;
+}
+.node-card-main em.stage-tag {
+  color: #637f48;
+  background: #eef4e3;
+  border-color: #dde8cb;
+  font-style: normal;
+}
+.stage-field {
+  margin-bottom: 12px;
+}
+.stage-breakdown {
+  margin-bottom: 17px;
+  padding: 16px 17px 15px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.stage-breakdown-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 13px;
+}
+.stage-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 13px 10px;
+  border: 1px solid #ebeee8;
+  border-radius: 9px;
+  background: #fbfdfb;
+}
+.stage-card.is-bottleneck {
+  border-color: #e3c9a0;
+  background: #fdf9f1;
+}
+.stage-card-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #59675e;
+  font-size: 9px;
+  font-weight: 600;
+}
+.stage-card-name em {
+  padding: 2px 6px;
+  color: #a5713d;
+  background: #f8ecd9;
+  border-radius: 99px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 500;
+}
+.stage-card > strong {
+  color: #2f3f35;
+  font: 700 17px var(--display);
+}
+.stage-card > small {
+  color: #97a197;
+  font-size: 8px;
+  line-height: 1.5;
+}
+.timeline-group {
+  border-bottom: 1px solid #f0f2ee;
+}
+.timeline-group:last-of-type {
+  border-bottom: 0;
+}
+.timeline-group .timeline-row {
+  border-bottom: 1px solid #f5f6f3;
+}
+.timeline-group .timeline-row:last-child {
+  border-bottom: 0;
+}
+.timeline-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 8px 7px;
+  margin-top: 6px;
+  background: #f6f8f3;
+  border-radius: 6px;
+}
+.timeline-group-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4a584f;
+  font-size: 9px;
+  font-weight: 700;
+}
+.timeline-group-name i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: #99bd6a;
+}
+.timeline-group-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #97a197;
+  font-size: 8px;
+}
+.timeline-group-meta em {
+  padding: 1px 6px;
+  color: #a5713d;
+  background: #f8ecd9;
+  border-radius: 99px;
+  font-style: normal;
+}
+.stage-delta-list {
+  margin-bottom: 17px;
+  padding: 14px 17px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.stage-delta-list .snapshot-heading {
+  margin-bottom: 10px;
+}
+.stage-delta-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) auto minmax(70px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 7px 2px;
+  border-bottom: 1px solid #f0f2ee;
+  font-size: 9px;
+}
+.stage-delta-row:last-child {
+  border-bottom: 0;
+}
+.stage-delta-name {
+  color: #4a584f;
+  font-weight: 600;
+}
+.stage-delta-values {
+  color: #7b897d;
+  font-family: var(--mono);
+  font-size: 8px;
+}
+.stage-delta-row em {
+  text-align: right;
+  color: #97a197;
+  font-size: 8px;
+  font-style: normal;
+}
+.stage-delta-row em.delta-good {
+  color: #65813a;
+}
+.stage-delta-row em.delta-bad {
+  color: #b46251;
+}
 @media (max-width: 1100px) {
   .sidebar {
     width: 210px;

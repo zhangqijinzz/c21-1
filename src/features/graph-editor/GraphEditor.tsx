@@ -3,6 +3,7 @@ import { Plus, GitBranch, CircleHelp } from "lucide-react";
 import type { LatencyProject, RequestNode } from "../../shared/domain/types";
 import type { GraphAnalysis } from "../../shared/domain/graph";
 import NodeInspector from "./NodeInspector";
+import StageBar from "./StageBar";
 
 interface Props {
   project: LatencyProject;
@@ -11,6 +12,10 @@ interface Props {
   onPatch: (id: string, patch: Partial<RequestNode>) => void;
   onDelete: (id: string) => void;
   onDependency: (id: string, dependencyId: string) => void;
+  onAddStage: () => void;
+  onRenameStage: (id: string, name: string) => void;
+  onMoveStage: (id: string, offset: -1 | 1) => void;
+  onRemoveStage: (id: string) => void;
 }
 
 export default function GraphEditor({
@@ -20,10 +25,16 @@ export default function GraphEditor({
   onPatch,
   onDelete,
   onDependency,
+  onAddStage,
+  onRenameStage,
+  onMoveStage,
+  onRemoveStage,
 }: Props) {
   const [selectedId, setSelectedId] = useState("");
   const selected =
     project.nodes.find((node) => node.id === selectedId) ?? project.nodes[0];
+  const stageName = (stageId: string | undefined) =>
+    project.stages.find((stage) => stage.id === stageId)?.name;
   return (
     <section className="module-page editor-page">
       <div className="module-heading">
@@ -36,6 +47,13 @@ export default function GraphEditor({
           <Plus size={16} /> 添加请求
         </button>
       </div>
+      <StageBar
+        project={project}
+        onAddStage={onAddStage}
+        onRenameStage={onRenameStage}
+        onMoveStage={onMoveStage}
+        onRemoveStage={onRemoveStage}
+      />
       <div className="editor-layout">
         <div className="node-board">
           <div className="board-topline">
@@ -82,6 +100,11 @@ export default function GraphEditor({
                     <span className="node-card-main">
                       <strong>{node.name}</strong>
                       <span>
+                        {stageName(node.stageId) && (
+                          <em className="stage-tag">
+                            {stageName(node.stageId)}
+                          </em>
+                        )}
                         {dependencies.length ? (
                           <>
                             {dependencies.map((name) => (

@@ -3,6 +3,8 @@ import {
   type LatencyProject,
   type RequestNode,
   type ScenarioSnapshot,
+  type StageCompletion,
+  type StageDefinition,
   type WorkspaceDocument,
 } from "../domain/types";
 import { IndexedDbService } from "../services/indexedDbService";
@@ -29,6 +31,7 @@ function parseNode(value: unknown): RequestNode | undefined {
     retryCount,
     failureRate,
     fallbackNodeId,
+    stageId,
   } = value;
   if (
     typeof id !== "string" ||
@@ -56,7 +59,24 @@ function parseNode(value: unknown): RequestNode | undefined {
     retryCount,
     failureRate,
     ...(typeof fallbackNodeId === "string" ? { fallbackNodeId } : {}),
+    ...(typeof stageId === "string" ? { stageId } : {}),
   };
+}
+
+function parseStage(value: unknown): StageDefinition | undefined {
+  if (!isRecord(value)) return undefined;
+  const { id, name } = value;
+  if (typeof id !== "string" || typeof name !== "string") return undefined;
+  return { id, name };
+}
+
+function parseStageCompletion(value: unknown): StageCompletion | undefined {
+  if (!isRecord(value)) return undefined;
+  const { stageId, name, completionMs } = value;
+  if (stageId !== null && typeof stageId !== "string") return undefined;
+  if (typeof name !== "string" || !isFiniteNumber(completionMs))
+    return undefined;
+  return { stageId: stageId ?? null, name, completionMs };
 }
 
 function parseScenario(value: unknown): ScenarioSnapshot | undefined {
@@ -86,6 +106,17 @@ function parseScenario(value: unknown): ScenarioSnapshot | undefined {
     nodes: value.nodes
       .map(parseNode)
       .filter((node): node is RequestNode => Boolean(node)),
+    // 老快照没有分段字段：缺省为空数组，不视为损坏
+    stages: Array.isArray(value.stages)
+      ? value.stages
+          .map(parseStage)
+          .filter((stage): stage is StageDefinition => Boolean(stage))
+      : [],
+    stageCompletions: Array.isArray(value.stageCompletions)
+      ? value.stageCompletions
+          .map(parseStageCompletion)
+          .filter((item): item is StageCompletion => Boolean(item))
+      : [],
     criticalPath: value.criticalPath.filter(
       (id): id is string => typeof id === "string",
     ),
@@ -109,6 +140,15 @@ function parseProject(
   const nodeIds = new Set(nodes.map((node) => node.id));
   let recovered =
     !Array.isArray(value.nodes) || nodes.length !== sourceNodes.length;
+  // 老项目没有 stages 字段：缺省为空数组，不视为损坏；
+  // 仅当字段存在但条目损坏时才计入恢复。
+  const stageSource = Array.isArray(value.stages) ? value.stages : [];
+  const stages = stageSource
+    .map(parseStage)
+    .filter((stage): stage is StageDefinition => Boolean(stage));
+  if (Array.isArray(value.stages) && stages.length !== stageSource.length)
+    recovered = true;
+  const stageIds = new Set(stages.map((stage) => stage.id));
   const safeNodes = nodes.map((node) => {
     const dependencyIds = node.dependencyIds.filter(
       (id) => id !== node.id && nodeIds.has(id),
@@ -119,9 +159,12 @@ function parseProject(
       nodeIds.has(node.fallbackNodeId)
         ? node.fallbackNodeId
         : undefined;
+    const validStage =
+      node.stageId && stageIds.has(node.stageId) ? node.stageId : undefined;
     if (
       dependencyIds.length !== node.dependencyIds.length ||
-      validFallback !== node.fallbackNodeId
+      validFallback !== node.fallbackNodeId ||
+      validStage !== node.stageId
     )
       recovered = true;
     return {
@@ -130,6 +173,7 @@ function parseProject(
       ...(validFallback
         ? { fallbackNodeId: validFallback }
         : { fallbackNodeId: undefined }),
+      ...(validStage ? { stageId: validStage } : { stageId: undefined }),
     };
   });
   const scenarioSource = Array.isArray(value.scenarios) ? value.scenarios : [];
@@ -146,6 +190,7 @@ function parseProject(
     id: value.id,
     title: value.title,
     nodes: safeNodes,
+    stages,
     concurrencyLimit:
       typeof value.concurrencyLimit === "number" && value.concurrencyLimit > 0
         ? Math.floor(value.concurrencyLimit)

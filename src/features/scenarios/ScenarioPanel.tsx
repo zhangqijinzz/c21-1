@@ -155,6 +155,53 @@ export default function ScenarioPanel({
               </article>
             </div>
           )}
+          {comparisonResult && comparisonResult.stageDeltas.length > 0 && (
+            <div className="stage-delta-list">
+              <div className="snapshot-heading">
+                <span className="section-label">分段完成时间</span>
+                <span>基准 → 对照</span>
+              </div>
+              {comparisonResult.stageDeltas.map((delta) => {
+                const comparable =
+                  delta.baselineMs !== null && delta.comparisonMs !== null;
+                const diff = comparable
+                  ? (delta.comparisonMs ?? 0) - (delta.baselineMs ?? 0)
+                  : 0;
+                return (
+                  <div
+                    className="stage-delta-row"
+                    key={delta.stageId ?? "unassigned"}
+                  >
+                    <span className="stage-delta-name">{delta.name}</span>
+                    <span className="stage-delta-values">
+                      {delta.baselineMs !== null
+                        ? formatDuration(delta.baselineMs)
+                        : "—"}{" "}
+                      →{" "}
+                      {delta.comparisonMs !== null
+                        ? formatDuration(delta.comparisonMs)
+                        : "—"}
+                    </span>
+                    <em
+                      className={
+                        !comparable || diff === 0
+                          ? ""
+                          : diff < 0
+                            ? "delta-good"
+                            : "delta-bad"
+                      }
+                    >
+                      {comparable
+                        ? diff === 0
+                          ? "持平"
+                          : `${diff > 0 ? "+" : "−"}${formatDuration(Math.abs(diff))}`
+                        : "仅一侧有分段"}
+                    </em>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="snapshot-list">
             <div className="snapshot-heading">
               <span className="section-label">已保存快照</span>

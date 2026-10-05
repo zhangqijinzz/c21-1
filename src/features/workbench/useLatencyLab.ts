@@ -20,6 +20,12 @@ import {
   getGraphAnalysis,
 } from "../graph-editor/graphViewModel";
 import {
+  addStage,
+  moveStage,
+  removeStage,
+  renameStage,
+} from "../graph-editor/stageViewModel";
+import {
   compareScenarios,
   removeScenario,
   restoreScenario,
@@ -212,6 +218,28 @@ export function useLatencyLab() {
     [activeProject, editProject],
   );
 
+  const createStage = useCallback(() => {
+    if (activeProject) editProject(addStage(activeProject));
+  }, [activeProject, editProject]);
+  const editStageName = useCallback(
+    (id: string, name: string) => {
+      if (activeProject) editProject(renameStage(activeProject, id, name));
+    },
+    [activeProject, editProject],
+  );
+  const reorderStage = useCallback(
+    (id: string, offset: -1 | 1) => {
+      if (activeProject) editProject(moveStage(activeProject, id, offset));
+    },
+    [activeProject, editProject],
+  );
+  const deleteStage = useCallback(
+    (id: string) => {
+      if (activeProject) editProject(removeStage(activeProject, id));
+    },
+    [activeProject, editProject],
+  );
+
   const simulate = useCallback(
     (nextMode = mode) => {
       if (!activeProject) return undefined;
@@ -290,6 +318,10 @@ export function useLatencyLab() {
     deleteNode,
     setNodeDependency,
     setLimit,
+    createStage,
+    editStageName,
+    reorderStage,
+    deleteStage,
     simulate,
     saveSnapshot,
     removeSavedScenario,

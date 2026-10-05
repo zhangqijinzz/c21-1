@@ -1,19 +1,41 @@
+import { UNASSIGNED_STAGE_NAME } from "../../shared/domain/stages";
 import type {
   LatencyProject,
   RequestNode,
   ScenarioSnapshot,
   SimulationResult,
+  StageDefinition,
 } from "../../shared/domain/types";
+
+export interface StageDelta {
+  stageId: string | null;
+  name: string;
+  baselineMs: number | null;
+  comparisonMs: number | null;
+}
 
 export interface ScenarioComparison {
   deltaMs: number;
   changes: string[];
+  stageDeltas: StageDelta[];
   outcome: "faster" | "slower" | "equal";
+}
+
+function stageNameOf(
+  stages: StageDefinition[],
+  stageId: string | undefined,
+): string {
+  if (!stageId) return UNASSIGNED_STAGE_NAME;
+  return (
+    stages.find((stage) => stage.id === stageId)?.name ?? UNASSIGNED_STAGE_NAME
+  );
 }
 
 function describeNodeChanges(
   before: RequestNode,
   after: RequestNode,
+  baselineStages: StageDefinition[],
+  comparisonStages: StageDefinition[],
 ): string[] {
   const changes: string[] = [];
   if (before.durationMs !== after.durationMs)
@@ -40,7 +62,66 @@ function describeNodeChanges(
     changes.push(`${before.name} · 降级目标已调整`);
   if (before.dependencyIds.join("|") !== after.dependencyIds.join("|"))
     changes.push(`${before.name} · 前置依赖已调整`);
+  if ((before.stageId ?? null) !== (after.stageId ?? null))
+    changes.push(
+      `${before.name} · 分段 ${stageNameOf(baselineStages, before.stageId)} → ${stageNameOf(comparisonStages, after.stageId)}`,
+    );
   return changes;
+}
+
+function describeStageChanges(
+  baseline: ScenarioSnapshot,
+  comparison: ScenarioSnapshot,
+): string[] {
+  const changes: string[] = [];
+  for (const stage of baseline.stages) {
+    const next = comparison.stages.find((item) => item.id === stage.id);
+    if (!next) changes.push(`分段「${stage.name}」· 已移除`);
+    else if (next.name !== stage.name)
+      changes.push(`分段「${stage.name}」→「${next.name}」`);
+  }
+  for (const stage of comparison.stages) {
+    if (!baseline.stages.some((item) => item.id === stage.id))
+      changes.push(`分段「${stage.name}」· 新增分段`);
+  }
+  const baselineOrder = baseline.stages.map((stage) => stage.id);
+  const comparisonOrder = comparison.stages.map((stage) => stage.id);
+  if (
+    baselineOrder.length === comparisonOrder.length &&
+    baselineOrder.every((id) => comparisonOrder.includes(id)) &&
+    baselineOrder.join("|") !== comparisonOrder.join("|")
+  )
+    changes.push("分段顺序已调整");
+  return changes;
+}
+
+function compareStageCompletions(
+  baseline: ScenarioSnapshot,
+  comparison: ScenarioSnapshot,
+): StageDelta[] {
+  const baselineMap = new Map(
+    baseline.stageCompletions.map((item) => [item.stageId, item]),
+  );
+  const comparisonMap = new Map(
+    comparison.stageCompletions.map((item) => [item.stageId, item]),
+  );
+  const keys: (string | null)[] = [];
+  for (const item of [
+    ...comparison.stageCompletions,
+    ...baseline.stageCompletions,
+  ]) {
+    if (!keys.includes(item.stageId)) keys.push(item.stageId);
+  }
+  return keys.map((key) => {
+    const before = baselineMap.get(key);
+    const after = comparisonMap.get(key);
+    return {
+      stageId: key,
+      name: after?.name ?? before?.name ?? UNASSIGNED_STAGE_NAME,
+      baselineMs: before?.completionMs ?? null,
+      comparisonMs: after?.completionMs ?? null,
+    };
+  });
 }
 
 export function compareScenarios(
@@ -52,10 +133,11 @@ export function compareScenarios(
     comparison.nodes.map((node) => [node.id, node]),
   );
   const changes = [
+    ...describeStageChanges(baseline, comparison),
     ...baseline.nodes.flatMap((node) => {
       const next = comparisonNodes.get(node.id);
       return next
-        ? describeNodeChanges(node, next)
+        ? describeNodeChanges(node, next, baseline.stages, comparison.stages)
         : [`${node.name} · 已从对照方案移除`];
     }),
     ...comparison.nodes
@@ -69,6 +151,7 @@ export function compareScenarios(
   return {
     deltaMs: comparison.completionMs - baseline.completionMs,
     changes,
+    stageDeltas: compareStageCompletions(baseline, comparison),
     outcome:
       comparison.completionMs < baseline.completionMs
         ? "faster"
@@ -95,6 +178,12 @@ export function saveScenario(
     createdAt: Date.now(),
     concurrencyLimit: project.concurrencyLimit,
     nodes: structuredClone(project.nodes),
+    stages: structuredClone(project.stages),
+    stageCompletions: result.stages.map((report) => ({
+      stageId: report.stageId,
+      name: report.name,
+      completionMs: report.completionMs,
+    })),
     completionMs: result.completionMs,
     criticalPath: [...result.criticalPath],
   };
@@ -129,6 +218,7 @@ export function restoreScenario(
   return {
     ...project,
     nodes: structuredClone(snapshot.nodes),
+    stages: structuredClone(snapshot.stages),
     concurrencyLimit: snapshot.concurrencyLimit,
     updatedAt: Date.now(),
   };

@@ -76,6 +76,27 @@ export default function NodeInspector({
           ))}
         </div>
         <div className="dependency-section">
+          {project.stages.length > 0 && (
+            <label className="field-label stage-field">
+              所属分段
+              <select
+                className="text-input"
+                value={node.stageId ?? ""}
+                onChange={(event) =>
+                  onPatch(node.id, {
+                    stageId: event.target.value || undefined,
+                  })
+                }
+              >
+                <option value="">未分段</option>
+                {project.stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="field-title">
             前置依赖 <span>{node.dependencyIds.length} 已选</span>
           </div>

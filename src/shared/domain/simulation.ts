@@ -1,4 +1,5 @@
 import { analyzeGraph } from "./graph";
+import { buildStageReports, resolveNodeStageId } from "./stages";
 import type {
   LatencyProject,
   RequestNode,
@@ -36,6 +37,7 @@ export function simulateProject(
       completionMs: 0,
       criticalPath: [],
       entries: [],
+      stages: [],
       warnings: analysis.validation.errors,
     };
   }
@@ -98,6 +100,7 @@ export function simulateProject(
     const endMs = startMs + modeledDurationMs;
     entries.push({
       nodeId: id,
+      stageId: resolveNodeStageId(project, node),
       startMs,
       endMs,
       modeledDurationMs,
@@ -140,11 +143,13 @@ export function simulateProject(
   ) {
     warnings.push("部分节点会触发超时截断，已计入重试与退避预算");
   }
+  const criticalPath = lastEntry ? (pathById.get(lastEntry.nodeId) ?? []) : [];
   return {
     mode,
     completionMs: lastEntry?.endMs ?? 0,
-    criticalPath: lastEntry ? (pathById.get(lastEntry.nodeId) ?? []) : [],
+    criticalPath,
     entries,
+    stages: buildStageReports(project, entries, criticalPath),
     warnings,
   };
 }
