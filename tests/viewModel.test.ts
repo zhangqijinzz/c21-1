@@ -86,4 +86,60 @@ describe("project and scenario view models", () => {
     expect(comparison.changes.join(" ")).toContain("并发上限");
     expect(comparison.changes.join(" ")).toContain("耗时");
   });
+
+  it("stores segments and segment stats in snapshots and restores them", () => {
+    const result = simulateProject(EXAMPLE_PROJECT);
+    const saved = saveScenario(EXAMPLE_PROJECT, result, "分段方案");
+    const snapshot = saved.scenarios[0];
+    expect(snapshot?.segments).toEqual(EXAMPLE_PROJECT.segments);
+    expect(snapshot?.segmentStats.map((stat) => stat.name)).toEqual([
+      "首屏",
+      "可交互",
+      "次要内容",
+    ]);
+    // 当前项目删掉分段后恢复快照，分段与归属应一并回来。
+    const stripped: typeof EXAMPLE_PROJECT = {
+      ...saved,
+      segments: [],
+      nodes: saved.nodes.map((node) => ({ ...node, segmentId: undefined })),
+    };
+    const restored = restoreScenario(stripped, snapshot!.id);
+    expect(restored.segments).toEqual(EXAMPLE_PROJECT.segments);
+    expect(restored.nodes.every((node) => node.segmentId !== undefined)).toBe(
+      true,
+    );
+  });
+
+  it("compares per-segment completion and still compares legacy snapshots without segments", () => {
+    const result = simulateProject(EXAMPLE_PROJECT);
+    const snapshot = saveScenario(EXAMPLE_PROJECT, result, "现状")
+      .scenarios[0]!;
+    const improved: typeof EXAMPLE_PROJECT = {
+      ...EXAMPLE_PROJECT,
+      nodes: EXAMPLE_PROJECT.nodes.map((node) =>
+        node.id === "catalog" ? { ...node, durationMs: 400 } : node,
+      ),
+    };
+    const improvedSnapshot = saveScenario(
+      improved,
+      simulateProject(improved),
+      "优化目录",
+    ).scenarios[0]!;
+    const comparison = compareScenarios(snapshot, improvedSnapshot);
+    expect(comparison.segmentComparisons).toHaveLength(3);
+    const interactive = comparison.segmentComparisons.find(
+      (item) => item.name === "可交互",
+    );
+    expect(interactive?.deltaMs).toBeLessThan(0);
+
+    // 老快照（没有 segments / segmentStats）也能参与对比，不抛错。
+    const legacy = {
+      ...snapshot,
+      segments: [],
+      segmentStats: [],
+    };
+    const legacyComparison = compareScenarios(legacy, improvedSnapshot);
+    expect(legacyComparison.changes.join(" ")).toContain("链路分段");
+    expect(legacyComparison.segmentComparisons.length).toBeGreaterThan(0);
+  });
 });

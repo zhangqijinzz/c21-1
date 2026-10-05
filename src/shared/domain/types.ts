@@ -1,3 +1,11 @@
+export const UNASSIGNED_SEGMENT_ID = "__unassigned__";
+export const UNASSIGNED_SEGMENT_NAME = "未分段";
+
+export interface ChainSegment {
+  id: string;
+  name: string;
+}
+
 export interface RequestNode {
   id: string;
   name: string;
@@ -8,6 +16,24 @@ export interface RequestNode {
   retryCount: number;
   failureRate: number;
   fallbackNodeId?: string;
+  segmentId?: string;
+}
+
+/** 单个分段在一次推演中的时间预算，order 为分段在整条链路中的先后位置（未分段排在最后）。 */
+export interface SegmentStat {
+  segmentId: string;
+  name: string;
+  order: number;
+  startMs: number;
+  completionMs: number;
+  nodeCount: number;
+  /** 段内节点排队等待合计。 */
+  waitMs: number;
+  /** 段内落在关键链路上的节点耗时合计。 */
+  criticalMs: number;
+  criticalNodeCount: number;
+  isBottleneck: boolean;
+  unassigned: boolean;
 }
 
 export interface ScenarioSnapshot {
@@ -16,6 +42,8 @@ export interface ScenarioSnapshot {
   createdAt: number;
   concurrencyLimit: number | null;
   nodes: RequestNode[];
+  segments: ChainSegment[];
+  segmentStats: SegmentStat[];
   completionMs: number;
   criticalPath: string[];
 }
@@ -24,6 +52,7 @@ export interface LatencyProject {
   id: string;
   title: string;
   nodes: RequestNode[];
+  segments: ChainSegment[];
   concurrencyLimit: number | null;
   scenarios: ScenarioSnapshot[];
   createdAt: number;
@@ -52,6 +81,7 @@ export interface SimulationResult {
   completionMs: number;
   criticalPath: string[];
   entries: TimelineEntry[];
+  segments: SegmentStat[];
   warnings: string[];
 }
 
@@ -67,6 +97,11 @@ export const EXAMPLE_PROJECT: LatencyProject = {
   createdAt: 1_728_000_000_000,
   updatedAt: 1_728_000_000_000,
   scenarios: [],
+  segments: [
+    { id: "segment-first-screen", name: "首屏" },
+    { id: "segment-interactive", name: "可交互" },
+    { id: "segment-secondary", name: "次要内容" },
+  ],
   nodes: [
     {
       id: "session",
@@ -77,6 +112,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 800,
       retryCount: 1,
       failureRate: 1,
+      segmentId: "segment-first-screen",
     },
     {
       id: "flags",
@@ -87,6 +123,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 700,
       retryCount: 0,
       failureRate: 0,
+      segmentId: "segment-first-screen",
     },
     {
       id: "profile",
@@ -97,6 +134,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 1200,
       retryCount: 1,
       failureRate: 3,
+      segmentId: "segment-interactive",
     },
     {
       id: "catalog",
@@ -107,6 +145,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       timeoutMs: 1400,
       retryCount: 1,
       failureRate: 2,
+      segmentId: "segment-interactive",
     },
     {
       id: "recommend",
@@ -118,6 +157,7 @@ export const EXAMPLE_PROJECT: LatencyProject = {
       retryCount: 1,
       failureRate: 5,
       fallbackNodeId: "catalog",
+      segmentId: "segment-secondary",
     },
   ],
 };
@@ -127,6 +167,7 @@ export function createEmptyProject(now = Date.now()): LatencyProject {
     id: `project-${crypto.randomUUID()}`,
     title: "未命名链路",
     nodes: [],
+    segments: [],
     concurrencyLimit: null,
     scenarios: [],
     createdAt: now,

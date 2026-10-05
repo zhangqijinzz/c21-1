@@ -146,6 +146,11 @@ export default function LatencyLabView() {
               onPatch={vm.patchNode}
               onDelete={vm.deleteNode}
               onDependency={vm.setNodeDependency}
+              onAddSegment={vm.addChainSegment}
+              onRenameSegment={vm.renameChainSegment}
+              onRemoveSegment={vm.removeChainSegment}
+              onMoveSegment={vm.reorderChainSegment}
+              onAssignSegment={vm.assignSegment}
             />
           )}
           {vm.module === "simulation" && (

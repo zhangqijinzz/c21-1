@@ -31,6 +31,16 @@ function formatDuration(value: number): string {
     : `${(value / 1000).toFixed(2)} s`;
 }
 
+function SegmentDelta({ delta }: { delta: number }) {
+  if (Math.abs(delta) < 0.5)
+    return <span className="seg-delta equal">持平</span>;
+  return (
+    <span className={`seg-delta ${delta < 0 ? "good" : "bad"}`}>
+      {delta < 0 ? "▼" : "▲"} {formatDuration(Math.abs(delta))}
+    </span>
+  );
+}
+
 export default function ScenarioPanel({
   project,
   onSave,
@@ -155,6 +165,53 @@ export default function ScenarioPanel({
               </article>
             </div>
           )}
+          {baseline && comparison && comparisonResult && (
+            <div className="segment-compare-card">
+              <div className="snapshot-heading">
+                <span className="section-label">分段完成时间对比</span>
+                <span>
+                  {
+                    comparisonResult.segmentComparisons.filter(
+                      (item) => !item.unassigned,
+                    ).length
+                  }{" "}
+                  个分段
+                </span>
+              </div>
+              {comparisonResult.segmentComparisons.length ? (
+                <div className="segment-compare-list">
+                  {comparisonResult.segmentComparisons.map((item) => (
+                    <div
+                      key={item.segmentId}
+                      className={`segment-compare-row ${item.unassigned ? "is-unassigned" : ""}`}
+                    >
+                      <span className="segment-compare-name">
+                        {item.name}
+                        {(item.bottleneckIn === "baseline" ||
+                          item.bottleneckIn === "both") && (
+                          <em className="seg-badge baseline">基准瓶颈</em>
+                        )}
+                        {(item.bottleneckIn === "comparison" ||
+                          item.bottleneckIn === "both") && (
+                          <em className="seg-badge comparison">对照瓶颈</em>
+                        )}
+                      </span>
+                      <span className="segment-compare-times">
+                        <b>{formatDuration(item.baselineMs)}</b>
+                        <span className="segment-compare-arrow">→</span>
+                        <b>{formatDuration(item.comparisonMs)}</b>
+                        <SegmentDelta delta={item.deltaMs} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="timeline-caption">
+                  这两份快照保存时还没有分段信息，无法对比分段时间；节点参数对比仍在下方。
+                </div>
+              )}
+            </div>
+          )}
           <div className="snapshot-list">
             <div className="snapshot-heading">
               <span className="section-label">已保存快照</span>
@@ -176,6 +233,12 @@ export default function ScenarioPanel({
                     {scenario.concurrencyLimit
                       ? `${scenario.concurrencyLimit} 路并发`
                       : "不限并发"}
+                    {" · "}
+                    {scenario.segments.length
+                      ? scenario.segments
+                          .map((segment) => segment.name)
+                          .join(" → ")
+                      : "未分段"}
                   </small>
                 </div>
                 <b className="snapshot-time">

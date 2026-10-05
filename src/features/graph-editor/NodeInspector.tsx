@@ -9,6 +9,7 @@ interface Props {
   onPatch: (id: string, patch: Partial<RequestNode>) => void;
   onDelete: (id: string) => void;
   onDependency: (id: string, dependencyId: string) => void;
+  onAssignSegment: (nodeId: string, segmentId: string | undefined) => void;
 }
 
 const numericFields: {
@@ -31,8 +32,12 @@ export default function NodeInspector({
   onPatch,
   onDelete,
   onDependency,
+  onAssignSegment,
 }: Props) {
   const [pendingDelete, setPendingDelete] = useState(false);
+  const assignedSegment = node.segmentId
+    ? project.segments.find((segment) => segment.id === node.segmentId)
+    : undefined;
   return (
     <>
       <aside className="inspector">
@@ -117,6 +122,28 @@ export default function NodeInspector({
           </select>
           <small className="field-note">
             按最终失败概率加权计入降级请求耗时。
+          </small>
+        </label>
+        <label className="field-label segment-field">
+          链路分段
+          <select
+            className="text-input"
+            value={node.segmentId ?? ""}
+            onChange={(event) =>
+              onAssignSegment(node.id, event.target.value || undefined)
+            }
+          >
+            <option value="">未归属（未分段）</option>
+            {project.segments.map((segment) => (
+              <option key={segment.id} value={segment.id}>
+                {project.segments.indexOf(segment) + 1}. {segment.name}
+              </option>
+            ))}
+          </select>
+          <small className="field-note">
+            {assignedSegment
+              ? `归属“${assignedSegment.name}”，推演会计入该分段完成时间。`
+              : "未归属节点会在推演中归入“未分段”，建议尽快分配。"}
           </small>
         </label>
       </aside>

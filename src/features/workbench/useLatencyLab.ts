@@ -20,6 +20,13 @@ import {
   getGraphAnalysis,
 } from "../graph-editor/graphViewModel";
 import {
+  addSegment,
+  assignNodeSegment,
+  moveSegment,
+  removeSegment,
+  renameSegment,
+} from "../graph-editor/segmentViewModel";
+import {
   compareScenarios,
   removeScenario,
   restoreScenario,
@@ -212,6 +219,51 @@ export function useLatencyLab() {
     [activeProject, editProject],
   );
 
+  const addChainSegment = useCallback(
+    (name: string): boolean => {
+      if (!activeProject) return false;
+      const outcome = addSegment(activeProject, name);
+      if (outcome.error) {
+        setNotice(outcome.error);
+        return false;
+      }
+      editProject(outcome.project);
+      return true;
+    },
+    [activeProject, editProject],
+  );
+  const renameChainSegment = useCallback(
+    (id: string, name: string) => {
+      if (!activeProject) return;
+      const outcome = renameSegment(activeProject, id, name);
+      if (outcome.error) setNotice(outcome.error);
+      else editProject(outcome.project);
+    },
+    [activeProject, editProject],
+  );
+  const removeChainSegment = useCallback(
+    (id: string) => {
+      if (activeProject) editProject(removeSegment(activeProject, id));
+    },
+    [activeProject, editProject],
+  );
+  const reorderChainSegment = useCallback(
+    (id: string, direction: -1 | 1) => {
+      if (!activeProject) return;
+      const outcome = moveSegment(activeProject, id, direction);
+      if (outcome.error) setNotice(outcome.error);
+      else editProject(outcome.project);
+    },
+    [activeProject, editProject],
+  );
+  const assignSegment = useCallback(
+    (nodeId: string, segmentId: string | undefined) => {
+      if (activeProject)
+        editProject(assignNodeSegment(activeProject, nodeId, segmentId));
+    },
+    [activeProject, editProject],
+  );
+
   const simulate = useCallback(
     (nextMode = mode) => {
       if (!activeProject) return undefined;
@@ -219,7 +271,9 @@ export function useLatencyLab() {
       const result = simulateProject(activeProject, nextMode);
       setMode(nextMode);
       setStatus(
-        result.warnings.some((warning) => warning.includes("循环"))
+        result.warnings.some(
+          (warning) => warning.includes("循环") || warning.includes("矛盾"),
+        )
           ? "error"
           : "completed",
       );
@@ -290,6 +344,11 @@ export function useLatencyLab() {
     deleteNode,
     setNodeDependency,
     setLimit,
+    addChainSegment,
+    renameChainSegment,
+    removeChainSegment,
+    reorderChainSegment,
+    assignSegment,
     simulate,
     saveSnapshot,
     removeSavedScenario,

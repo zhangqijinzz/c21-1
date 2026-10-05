@@ -1,8 +1,10 @@
 import {
   EXAMPLE_PROJECT,
+  type ChainSegment,
   type LatencyProject,
   type RequestNode,
   type ScenarioSnapshot,
+  type SegmentStat,
   type WorkspaceDocument,
 } from "../domain/types";
 import { IndexedDbService } from "../services/indexedDbService";
@@ -29,6 +31,7 @@ function parseNode(value: unknown): RequestNode | undefined {
     retryCount,
     failureRate,
     fallbackNodeId,
+    segmentId,
   } = value;
   if (
     typeof id !== "string" ||
@@ -56,7 +59,47 @@ function parseNode(value: unknown): RequestNode | undefined {
     retryCount,
     failureRate,
     ...(typeof fallbackNodeId === "string" ? { fallbackNodeId } : {}),
+    // 老数据没有 segmentId，缺省即“未分段”，不算损坏。
+    ...(typeof segmentId === "string" ? { segmentId } : {}),
   };
+}
+
+function parseSegments(value: unknown): ChainSegment[] {
+  if (!Array.isArray(value)) return [];
+  const segments: ChainSegment[] = [];
+  const ids = new Set<string>();
+  for (const item of value) {
+    if (
+      !isRecord(item) ||
+      typeof item.id !== "string" ||
+      typeof item.name !== "string"
+    )
+      continue;
+    // 分段 id 重复时保留第一条，避免快照歧义。
+    if (ids.has(item.id)) continue;
+    ids.add(item.id);
+    segments.push({ id: item.id, name: item.name });
+  }
+  return segments;
+}
+
+function parseSegmentStats(value: unknown): SegmentStat[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is SegmentStat =>
+      isRecord(item) &&
+      typeof item.segmentId === "string" &&
+      typeof item.name === "string" &&
+      isFiniteNumber(item.order) &&
+      isFiniteNumber(item.startMs) &&
+      isFiniteNumber(item.completionMs) &&
+      isFiniteNumber(item.nodeCount) &&
+      isFiniteNumber(item.waitMs) &&
+      isFiniteNumber(item.criticalMs) &&
+      isFiniteNumber(item.criticalNodeCount) &&
+      typeof item.isBottleneck === "boolean" &&
+      typeof item.unassigned === "boolean",
+  );
 }
 
 function parseScenario(value: unknown): ScenarioSnapshot | undefined {
@@ -89,6 +132,9 @@ function parseScenario(value: unknown): ScenarioSnapshot | undefined {
     criticalPath: value.criticalPath.filter(
       (id): id is string => typeof id === "string",
     ),
+    // 早先保存的方案快照没有分段字段，按空分段处理，仍可打开、推演和对比。
+    segments: parseSegments(value.segments),
+    segmentStats: parseSegmentStats(value.segmentStats),
   };
 }
 
@@ -106,9 +152,16 @@ function parseProject(
   const nodes = parsedNodes.filter((node): node is RequestNode =>
     Boolean(node),
   );
+  const segments = parseSegments(value.segments);
+  const segmentIds = new Set(segments.map((segment) => segment.id));
   const nodeIds = new Set(nodes.map((node) => node.id));
   let recovered =
     !Array.isArray(value.nodes) || nodes.length !== sourceNodes.length;
+  if (
+    Array.isArray(value.segments) &&
+    value.segments.length !== segments.length
+  )
+    recovered = true;
   const safeNodes = nodes.map((node) => {
     const dependencyIds = node.dependencyIds.filter(
       (id) => id !== node.id && nodeIds.has(id),
@@ -119,14 +172,20 @@ function parseProject(
       nodeIds.has(node.fallbackNodeId)
         ? node.fallbackNodeId
         : undefined;
+    // 节点归属的分段已不存在：退回未分段并标记恢复，而不是丢弃节点。
+    let segmentId = node.segmentId;
+    if (segmentId !== undefined && !segmentIds.has(segmentId))
+      segmentId = undefined;
     if (
       dependencyIds.length !== node.dependencyIds.length ||
-      validFallback !== node.fallbackNodeId
+      validFallback !== node.fallbackNodeId ||
+      segmentId !== node.segmentId
     )
       recovered = true;
     return {
       ...node,
       dependencyIds,
+      ...(segmentId !== undefined ? { segmentId } : { segmentId: undefined }),
       ...(validFallback
         ? { fallbackNodeId: validFallback }
         : { fallbackNodeId: undefined }),
@@ -146,6 +205,7 @@ function parseProject(
     id: value.id,
     title: value.title,
     nodes: safeNodes,
+    segments,
     concurrencyLimit:
       typeof value.concurrencyLimit === "number" && value.concurrencyLimit > 0
         ? Math.floor(value.concurrencyLimit)

@@ -86,4 +86,72 @@ describe("project repository recovery", () => {
     expect(loaded.document.projects[0]?.id).toBe(EXAMPLE_PROJECT.id);
     expect(loaded.recovered).toBe(true);
   });
+
+  it("opens legacy projects and snapshots that predate chain segments", async () => {
+    const storage = new MemoryStorage();
+    const legacyNode = {
+      id: "legacy-node",
+      name: "老节点",
+      durationMs: 300,
+      jitterMs: 0,
+      dependencyIds: [],
+      timeoutMs: 900,
+      retryCount: 0,
+      failureRate: 0,
+    };
+    storage.value = {
+      version: 1,
+      activeProjectId: "legacy-project",
+      projects: [
+        {
+          id: "legacy-project",
+          title: "老版本项目",
+          nodes: [legacyNode],
+          concurrencyLimit: null,
+          scenarios: [
+            {
+              id: "legacy-scenario",
+              name: "老快照",
+              createdAt: 123,
+              concurrencyLimit: null,
+              nodes: [legacyNode],
+              completionMs: 300,
+              criticalPath: ["legacy-node"],
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 2,
+        },
+      ],
+    };
+    const loaded = await new ProjectRepository(storage).load();
+    const project = loaded.document.projects[0];
+    expect(project?.segments).toEqual([]);
+    expect(project?.nodes[0]?.segmentId).toBeUndefined();
+    expect(loaded.recovered).toBe(false);
+    const snapshot = project?.scenarios[0];
+    expect(snapshot?.segments).toEqual([]);
+    expect(snapshot?.segmentStats).toEqual([]);
+  });
+
+  it("recovers nodes whose segment reference is missing instead of dropping them", async () => {
+    const storage = new MemoryStorage();
+    storage.value = {
+      version: 1,
+      activeProjectId: EXAMPLE_PROJECT.id,
+      projects: [
+        {
+          ...EXAMPLE_PROJECT,
+          segments: [],
+          nodes: [
+            { ...EXAMPLE_PROJECT.nodes[0], segmentId: "vanished-segment" },
+          ],
+        },
+      ],
+    };
+    const loaded = await new ProjectRepository(storage).load();
+    expect(loaded.recovered).toBe(true);
+    expect(loaded.document.projects[0]?.nodes).toHaveLength(1);
+    expect(loaded.document.projects[0]?.nodes[0]?.segmentId).toBeUndefined();
+  });
 });

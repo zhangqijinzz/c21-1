@@ -12,6 +12,7 @@ import type {
   SimulationResult,
 } from "../../shared/domain/types";
 import Timeline from "./Timeline";
+import SegmentBreakdown from "./SegmentBreakdown";
 
 interface Props {
   project: LatencyProject;
@@ -45,6 +46,12 @@ export default function SimulationPanel({
   const criticalNames = result.criticalPath
     .map((id) => project.nodes.find((node) => node.id === id)?.name)
     .filter(Boolean);
+  const segmentConflictWarning = result.warnings.find((warning) =>
+    warning.includes("矛盾"),
+  );
+  const unassignedWarning = result.warnings.find((warning) =>
+    warning.includes("尚未归属分段"),
+  );
   return (
     <section className="module-page simulation-page">
       <div className="module-heading">
@@ -159,6 +166,13 @@ export default function SimulationPanel({
           </div>
         </article>
       </div>
+      {segmentConflictWarning && (
+        <div className="segment-conflict-banner">{segmentConflictWarning}</div>
+      )}
+      {!segmentConflictWarning && unassignedWarning && (
+        <div className="segment-unassigned-banner">{unassignedWarning}</div>
+      )}
+      <SegmentBreakdown result={result} />
       <Timeline project={project} result={result} />
       <div className="model-footnote">
         耗时 = 截断后的请求耗时 × 失败重试概率 +

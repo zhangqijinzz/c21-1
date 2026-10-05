@@ -3,6 +3,7 @@ import { Plus, GitBranch, CircleHelp } from "lucide-react";
 import type { LatencyProject, RequestNode } from "../../shared/domain/types";
 import type { GraphAnalysis } from "../../shared/domain/graph";
 import NodeInspector from "./NodeInspector";
+import SegmentManager from "./SegmentManager";
 
 interface Props {
   project: LatencyProject;
@@ -11,6 +12,11 @@ interface Props {
   onPatch: (id: string, patch: Partial<RequestNode>) => void;
   onDelete: (id: string) => void;
   onDependency: (id: string, dependencyId: string) => void;
+  onAddSegment: (name: string) => boolean;
+  onRenameSegment: (id: string, name: string) => void;
+  onRemoveSegment: (id: string) => void;
+  onMoveSegment: (id: string, direction: -1 | 1) => void;
+  onAssignSegment: (nodeId: string, segmentId: string | undefined) => void;
 }
 
 export default function GraphEditor({
@@ -20,10 +26,26 @@ export default function GraphEditor({
   onPatch,
   onDelete,
   onDependency,
+  onAddSegment,
+  onRenameSegment,
+  onRemoveSegment,
+  onMoveSegment,
+  onAssignSegment,
 }: Props) {
   const [selectedId, setSelectedId] = useState("");
   const selected =
     project.nodes.find((node) => node.id === selectedId) ?? project.nodes[0];
+  const segmentName = (segmentId?: string) =>
+    project.segments.find((segment) => segment.id === segmentId)?.name;
+  const conflictNodeIds = new Set(
+    graph.segmentConflicts.flatMap((conflict) => [
+      conflict.fromNodeId,
+      conflict.toNodeId,
+    ]),
+  );
+  const segmentError = graph.validation.errors.find((error) =>
+    error.includes("分段"),
+  );
   return (
     <section className="module-page editor-page">
       <div className="module-heading">
@@ -36,6 +58,13 @@ export default function GraphEditor({
           <Plus size={16} /> 添加请求
         </button>
       </div>
+      <SegmentManager
+        project={project}
+        onAdd={onAddSegment}
+        onRename={onRenameSegment}
+        onRemove={onRemoveSegment}
+        onMove={onMoveSegment}
+      />
       <div className="editor-layout">
         <div className="node-board">
           <div className="board-topline">
@@ -67,11 +96,12 @@ export default function GraphEditor({
                     (id) => project.nodes.find((item) => item.id === id)?.name,
                   )
                   .filter(Boolean);
+                const stageName = segmentName(node.segmentId);
                 return (
                   <button
                     key={node.id}
                     onClick={() => setSelectedId(node.id)}
-                    className={`node-card ${selected?.id === node.id ? "active" : ""} ${graph.cycle.includes(node.id) ? "cycle-conflict" : ""}`}
+                    className={`node-card ${selected?.id === node.id ? "active" : ""} ${graph.cycle.includes(node.id) ? "cycle-conflict" : ""} ${conflictNodeIds.has(node.id) ? "segment-conflict" : ""}`}
                   >
                     <span className="node-rail">
                       <span className="node-number">
@@ -93,6 +123,11 @@ export default function GraphEditor({
                         )}
                       </span>
                     </span>
+                    <span
+                      className={`node-stage-badge ${stageName ? "" : "is-unassigned"}`}
+                    >
+                      {stageName ?? "未分段"}
+                    </span>
                     <span className="node-card-metric">
                       <b>{node.durationMs}</b>
                       <small>ms</small>
@@ -104,11 +139,14 @@ export default function GraphEditor({
             </div>
           )}
           {graph.validation.errors.length > 0 && (
-            <div className="inline-error">{graph.validation.errors[0]}</div>
+            <div className="inline-error">
+              {segmentError ?? graph.validation.errors[0]}
+            </div>
           )}
           {project.nodes.length > 0 && (
             <div className="graph-hint">
-              <CircleHelp size={14} /> 点击节点编辑参数；右侧勾选依赖建立连线。
+              <CircleHelp size={14} />{" "}
+              点击节点编辑参数与分段归属；右侧勾选依赖建立连线。
             </div>
           )}
         </div>
@@ -119,6 +157,7 @@ export default function GraphEditor({
             onPatch={onPatch}
             onDelete={onDelete}
             onDependency={onDependency}
+            onAssignSegment={onAssignSegment}
           />
         )}
       </div>
